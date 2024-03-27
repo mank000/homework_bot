@@ -45,9 +45,13 @@ HOMEWORK_VERDICTS = {
 
 def check_tokens():
     """Проверяем доступность переменных окружения."""
-    if PRACTICUM_TOKEN is None and TELEGRAM_TOKEN is None and TELEGRAM_CHAT_ID is None:
-        logger.critical('Отсутствие обязательных переменных окружения во время запуска бота')
-        raise exceptions.EnvironmentVariableError('Что-то с переменными окружения.')
+    if (PRACTICUM_TOKEN is None
+            and TELEGRAM_TOKEN is None
+            and TELEGRAM_CHAT_ID is None):
+        logger.critical('Отсутствие обязательных переменных'
+                        ' окружения во время запуска бота')
+        raise exceptions.EnvironmentVariableError('Что-то с'
+                                                  ' переменными окружения.')
 
 
 def send_message(bot, message):
@@ -68,7 +72,8 @@ def get_api_answer(timestamp):
         response = requests.get(URL, headers=HEADERS, params=payload)
         if response.status_code != HTTPStatus.OK:
             logger.error('Недоступность эндпоинта Яндекса.')
-            raise requests.RequestException(f'Статус ошибки: {response.status_code}')
+            raise requests.RequestException(f'Статус ошибки: '
+                                            f'{response.status_code}')
 
     except requests.ConnectionError:
         logger.error('Ошибка подключения к сети.')
@@ -81,7 +86,7 @@ def get_api_answer(timestamp):
     except requests.RequestException:
         logger.error('Неизвестная ошибка')
         raise exceptions.RequestError('Неизвестная ошибка.')
-
+    logger.debug('Бот успешно получил ответ.')
     return response.json()
 
 
@@ -97,22 +102,30 @@ def check_response(response):
 
 
 def parse_status(homework):
-    """Извлекает из информации о конкретной домашней работе статус этой работы. Возврващает строку"""
+    """
+    Извлекает из информации о конкретной домашней работе
+    статус этой работы. Возврващает строку
+    """
     try:
         homework_name = homework.get('homework_name')
 
         if type(homework_name) != str:
-            raise exceptions.ParseError('Ошибка извлечения информации о домашней работе.')
+            raise exceptions.ParseError('Ошибка извлечения'
+                                        'информации о домашней работе.')
 
         if homework.get('status') not in list(HOMEWORK_VERDICTS.keys()):
-            raise exceptions.ParseError('Домашняя работа получена без статуса.')
+            raise exceptions.ParseError('Домашняя работа получена'
+                                        'без статуса.')
 
         verdict = HOMEWORK_VERDICTS[homework.get('status')]
 
-        return f'Изменился статус проверки работы "{homework_name}". {verdict}'
+        return (f'Изменился статус проверки'
+                f'работы "{homework_name}". {verdict}')
     except Exception as e:
-        logger.error('Ошибка извлечения информации о домашней работе.' + str(e))
-        raise exceptions.ParseError('Ошибка извлечения информации о домашней работе.' + str(e))
+        logger.error('Ошибка извлечения информации'
+                     ' о домашней работе.' + str(e))
+        raise exceptions.ParseError('Ошибка извлечения информации о'
+                                    ' домашней работе.' + str(e))
 
 
 def main():
@@ -129,6 +142,9 @@ def main():
 
     while True:
         try:
+
+            logger.debug('Бот начал свою работу.')
+
             # Получаем ответ от API
             response = get_api_answer(timestamp)
             check_response(response)
@@ -137,12 +153,14 @@ def main():
 
             if len(homeworks) > 0:
                 # Формируем сообщение, записываем статус последней дз,
-                # Последней потому что если их несколько, то программа выдаст ошибку.
+                # Последней потому что если их несколько,
+                # то программа выдаст ошибку.
                 message = parse_status(response.get('homeworks')[0])
                 answer = homeworks[0].get('status')
                 print(parse_status(response.get('homeworks')[0]))
 
-                # Если нет в моей коллекции ответа, то можем отправить сообщение.
+                # Если нет в моей коллекции ответа,
+                # то можем отправить сообщение.
                 if answer not in answers:
                     try:
                         send_message(bot, message)
@@ -152,7 +170,8 @@ def main():
                 else:
                     logger.debug('В ответе нет новых результатов.')
 
-                # Смотрим: если ответ это 'approved' или 'reviewing', то обнуляем список.
+                # Смотрим: если ответ это 'approved' или 'reviewing',
+                # то обнуляем список.
                 if (answer == list(HOMEWORK_VERDICTS.keys())[1] or
                         answer == list(HOMEWORK_VERDICTS.keys())[0]):
                     answers.clear()
