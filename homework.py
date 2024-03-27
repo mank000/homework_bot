@@ -50,8 +50,8 @@ def check_tokens():
             and TELEGRAM_CHAT_ID is None):
         logger.critical('Отсутствие обязательных переменных'
                         ' окружения во время запуска бота')
-        raise exceptions.EnvironmentVariableError('Что-то с'
-                                                  ' переменными окружения.')
+        raise ValueError('Что-то с'
+                         ' переменными окружения.')
 
 
 def send_message(bot, message):
@@ -60,9 +60,7 @@ def send_message(bot, message):
         sended_message = bot.send_message(TELEGRAM_CHAT_ID, message)
         logger.debug(f'Удачная отправка сообщения: {sended_message}')
     except Exception as e:
-        message = f'Возникла ошибка BotApi: {e}'
         logger.error(f'Ошибка отправки сообщения: {e}')
-        bot.send_message(TELEGRAM_CHAT_ID, message)
 
 
 def get_api_answer(timestamp):
@@ -70,6 +68,7 @@ def get_api_answer(timestamp):
     payload = {'from_date': timestamp}
     try:
         response = requests.get(URL, headers=HEADERS, params=payload)
+
         if response.status_code != HTTPStatus.OK:
             logger.error('Недоступность эндпоинта Яндекса.')
             raise requests.RequestException(f'Статус ошибки: '
@@ -77,11 +76,11 @@ def get_api_answer(timestamp):
 
     except requests.ConnectionError:
         logger.error('Ошибка подключения к сети.')
-        raise exceptions.RequestError('Ошибка подключения к сети.')
+        raise ConnectionAbortedError('Ошибка подключения к сети.')
 
     except requests.Timeout as t:
         logger.error(f'Timed-out. {t}')
-        raise exceptions.RequestError(f'Timed-out. {t}')
+        raise TimeoutError(f'Timed-out. {t}')
 
     except requests.RequestException:
         logger.error('Неизвестная ошибка')
@@ -107,12 +106,12 @@ def parse_status(homework):
         homework_name = homework.get('homework_name')
 
         if type(homework_name) != str:
-            raise exceptions.ParseError('Ошибка извлечения'
-                                        ' информации о домашней работе.')
+            raise TypeError('Ошибка извлечения'
+                            ' информации о домашней работе.')
 
         if homework.get('status') not in list(HOMEWORK_VERDICTS.keys()):
-            raise exceptions.ParseError('Домашняя работа получена'
-                                        ' без статуса.')
+            raise KeyError('Домашняя работа получена'
+                           ' без статуса.')
 
         verdict = HOMEWORK_VERDICTS[homework.get('status')]
 
@@ -144,31 +143,30 @@ def main():
             homeworks = response.get('homeworks')
             timestamp = response.get('current_date')
 
-            if homeworks:
-                # Формируем сообщение, записываем статус последней дз,
-                # Последней потому что если их несколько,
-                # то программа выдаст ошибку.
-                message = parse_status(response.get('homeworks')[0])
-                answer = homeworks[0].get('status')
-                print(parse_status(response.get('homeworks')[0]))
+            # Формируем сообщение, записываем статус последней дз,
+            # Последней потому что если их несколько,
+            # то программа выдаст ошибку.
+            message = parse_status(response.get('homeworks')[0])
+            answer = homeworks[0].get('status')
+            print(parse_status(response.get('homeworks')[0]))
 
-                # Если нет в моей коллекции ответа,
-                # то можем отправить сообщение.
-                if answer not in answers:
-                    try:
-                        send_message(bot, message)
-                    except telegram.error.TelegramError:
-                        pass
-                    answers.add(answer)
-                else:
-                    logger.debug('В ответе нет новых результатов.')
+            # Если нет в моей коллекции ответа,
+            # то можем отправить сообщение.
+            if answer not in answers:
+                try:
+                    send_message(bot, message)
+                except telegram.error.TelegramError:
+                    pass
+                answers.add(answer)
+            else:
+                logger.debug('В ответе нет новых результатов.')
 
-                # Смотрим: если ответ это 'approved' или 'reviewing',
-                # то обнуляем список.
-                if answer in list(HOMEWORK_VERDICTS.keys())[:2]:
-                    answers.clear()
-                    errors.clear()
-                    answers.add(answer)
+            # Смотрим: если ответ это 'approved' или 'reviewing',
+            # то обнуляем список.
+            if answer in list(HOMEWORK_VERDICTS.keys())[:2]:
+                answers.clear()
+                errors.clear()
+                answers.add(answer)
 
         except Exception as error:
             # Записываем ошибку для того, чтобы она не повторялась в сообщении.
