@@ -66,7 +66,7 @@ def send_message(bot, message):
 
 
 def get_api_answer(timestamp):
-    """Делает запрос к эндпоинту API-сервиса. """
+    """Делает запрос к эндпоинту API-сервиса."""
     payload = {'from_date': timestamp}
     try:
         response = requests.get(URL, headers=HEADERS, params=payload)
@@ -102,25 +102,22 @@ def check_response(response):
 
 
 def parse_status(homework):
-    """
-    Извлекает из информации о конкретной домашней работе
-    статус этой работы. Возврващает строку
-    """
+    """Извлекает статус о переданной домашней работе."""
     try:
         homework_name = homework.get('homework_name')
 
         if type(homework_name) != str:
             raise exceptions.ParseError('Ошибка извлечения'
-                                        'информации о домашней работе.')
+                                        ' информации о домашней работе.')
 
         if homework.get('status') not in list(HOMEWORK_VERDICTS.keys()):
             raise exceptions.ParseError('Домашняя работа получена'
-                                        'без статуса.')
+                                        ' без статуса.')
 
         verdict = HOMEWORK_VERDICTS[homework.get('status')]
 
         return (f'Изменился статус проверки'
-                f'работы "{homework_name}". {verdict}')
+                f' работы "{homework_name}". {verdict}')
     except Exception as e:
         logger.error('Ошибка извлечения информации'
                      ' о домашней работе.' + str(e))
@@ -133,25 +130,21 @@ def main():
     check_tokens()
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-
     timestamp = int(time.time())
 
     errors = set()
-
     answers = set()
 
     while True:
         try:
-
             logger.debug('Бот начал свою работу.')
-
             # Получаем ответ от API
             response = get_api_answer(timestamp)
             check_response(response)
             homeworks = response.get('homeworks')
             timestamp = response.get('current_date')
 
-            if len(homeworks) > 0:
+            if homeworks:
                 # Формируем сообщение, записываем статус последней дз,
                 # Последней потому что если их несколько,
                 # то программа выдаст ошибку.
@@ -172,14 +165,14 @@ def main():
 
                 # Смотрим: если ответ это 'approved' или 'reviewing',
                 # то обнуляем список.
-                if (answer == list(HOMEWORK_VERDICTS.keys())[1] or
-                        answer == list(HOMEWORK_VERDICTS.keys())[0]):
+                if answer in list(HOMEWORK_VERDICTS.keys())[:2]:
                     answers.clear()
                     errors.clear()
                     answers.add(answer)
 
         except Exception as error:
             # Записываем ошибку для того, чтобы она не повторялась в сообщении.
+
             if str(error) not in errors:
                 message = f'Сбой в работе программы: {str(error)}'
                 try:
