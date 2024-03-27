@@ -137,6 +137,7 @@ def main():
     while True:
         try:
             logger.debug('Бот начал свою работу.')
+
             # Получаем ответ от API
             response = get_api_answer(timestamp)
             check_response(response)
@@ -148,15 +149,11 @@ def main():
             # то программа выдаст ошибку.
             message = parse_status(response.get('homeworks')[0])
             answer = homeworks[0].get('status')
-            print(parse_status(response.get('homeworks')[0]))
 
             # Если нет в моей коллекции ответа,
             # то можем отправить сообщение.
             if answer not in answers:
-                try:
-                    send_message(bot, message)
-                except telegram.error.TelegramError:
-                    pass
+                send_message(bot, message)
                 answers.add(answer)
             else:
                 logger.debug('В ответе нет новых результатов.')
@@ -169,14 +166,11 @@ def main():
                 answers.add(answer)
 
         except Exception as error:
-            # Записываем ошибку для того, чтобы она не повторялась в сообщении.
 
+            # Записываем ошибку для того, чтобы она не повторялась в сообщении.
             if str(error) not in errors:
                 message = f'Сбой в работе программы: {str(error)}'
-                try:
-                    send_message(bot, message)
-                except telegram.error.TelegramError:
-                    pass
+                send_message(bot, message)
                 errors.add(str(error))
 
         time.sleep(RETRY_PERIOD)
