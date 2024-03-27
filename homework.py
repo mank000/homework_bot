@@ -18,9 +18,6 @@ TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 URL = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 
 RETRY_PERIOD = 600
-# При периодических запросах к API можно использовать значение,
-# полученное в ответе под ключом current_date, в качестве
-# параметра from_date в следующем запросе.
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
