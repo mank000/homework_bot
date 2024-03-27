@@ -129,6 +129,7 @@ def main():
     check_tokens()
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
+    logger.debug('Бот начал свою работу.')
     timestamp = int(time.time())
 
     errors = set()
@@ -136,7 +137,6 @@ def main():
 
     while True:
         try:
-            logger.debug('Бот начал свою работу.')
 
             # Получаем ответ от API
             response = get_api_answer(timestamp)
