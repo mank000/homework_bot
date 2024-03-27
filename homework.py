@@ -164,6 +164,9 @@ def main():
                     answers.clear()
                     errors.clear()
                     answers.add(answer)
+            else:
+                logger.debug('Новые ДЗ не отправлены.'
+                             ' Вернулся пустой список с ДЗ')
 
         except Exception as error:
 
