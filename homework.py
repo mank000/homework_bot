@@ -143,26 +143,27 @@ def main():
             check_response(response)
             timestamp = response.get('current_date')
 
-            # Формируем сообщение, записываем статус последней дз,
-            # Последней потому что если их несколько,
-            # то программа выдаст ошибку.
-            message = parse_status(response.get('homeworks')[0])
-            answer = response.get('homeworks')[0].get('status')
+            if len(response.get('homeworks')) > 0:
+                # Формируем сообщение, записываем статус последней дз,
+                # Последней потому что если их несколько,
+                # то программа выдаст ошибку.
+                message = parse_status(response.get('homeworks')[0])
+                answer = response.get('homeworks')[0].get('status')
 
-            # Если нет в моей коллекции ответа,
-            # то можем отправить сообщение.
-            if answer not in answers:
-                send_message(bot, message)
-                answers.add(answer)
-            else:
-                logger.debug('В ответе нет новых результатов.')
+                # Если нет в моей коллекции ответа,
+                # то можем отправить сообщение.
+                if answer not in answers:
+                    send_message(bot, message)
+                    answers.add(answer)
+                else:
+                    logger.debug('В ответе нет новых результатов.')
 
-            # Смотрим: если ответ это 'approved' или 'reviewing',
-            # то обнуляем список.
-            if answer in list(HOMEWORK_VERDICTS.keys())[:2]:
-                answers.clear()
-                errors.clear()
-                answers.add(answer)
+                # Смотрим: если ответ это 'approved' или 'reviewing',
+                # то обнуляем список.
+                if answer in list(HOMEWORK_VERDICTS.keys())[:2]:
+                    answers.clear()
+                    errors.clear()
+                    answers.add(answer)
 
         except Exception as error:
 
