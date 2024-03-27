@@ -141,14 +141,13 @@ def main():
             # Получаем ответ от API
             response = get_api_answer(timestamp)
             check_response(response)
-            homeworks = response.get('homeworks')
             timestamp = response.get('current_date')
 
             # Формируем сообщение, записываем статус последней дз,
             # Последней потому что если их несколько,
             # то программа выдаст ошибку.
             message = parse_status(response.get('homeworks')[0])
-            answer = homeworks[0].get('status')
+            answer = response.get('homeworks')[0].get('status')
 
             # Если нет в моей коллекции ответа,
             # то можем отправить сообщение.
