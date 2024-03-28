@@ -4,3 +4,6 @@ class RequestError(Exception):
 
 class ParseError(Exception):
     pass
+
+class TokensError(Exception):
+    pass

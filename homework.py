@@ -8,18 +8,20 @@ import requests
 import telegram
 from dotenv import load_dotenv
 
+import config
 import exceptions
+
 
 load_dotenv()
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
-URL = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
+URL = config.URL
 
-RETRY_PERIOD = 600
-ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
-HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
+RETRY_PERIOD = config.RETRY_PERIOD
+ENDPOINT = config.ENDPOINT
+HEADERS = config.gettoken(PRACTICUM_TOKEN)
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -42,13 +44,11 @@ HOMEWORK_VERDICTS = {
 
 def check_tokens():
     """Проверяем доступность переменных окружения."""
-    if (PRACTICUM_TOKEN is None
-            and TELEGRAM_TOKEN is None
-            and TELEGRAM_CHAT_ID is None):
+    if not all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]):
         logger.critical('Отсутствие обязательных переменных'
                         ' окружения во время запуска бота')
-        raise ValueError('Что-то с'
-                         ' переменными окружения.')
+        raise exceptions.TokensError('Что-то с'
+                                     ' переменными окружения.')
 
 
 def send_message(bot, message):
@@ -56,7 +56,7 @@ def send_message(bot, message):
     try:
         sended_message = bot.send_message(TELEGRAM_CHAT_ID, message)
         logger.debug(f'Удачная отправка сообщения: {sended_message}')
-    except Exception as e:
+    except telegram.error.TelegramError as e:
         logger.error(f'Ошибка отправки сообщения: {e}')
 
 
@@ -88,37 +88,31 @@ def get_api_answer(timestamp):
 
 def check_response(response):
     """Проверяет API Практикума на соответствие с документацией."""
-    if type(response) != dict:
+    if not isinstance(response, dict):
         logger.error('Входящие данные переданы не в виде словаря.')
         raise TypeError('Входящие данные переданы не в виде словаря.')
 
-    if type(response.get('homeworks')) != list:
+    if not isinstance(response.get('homeworks'), list):
         logger.error('Входящие данные переданы не в виде списка.')
         raise TypeError('Входящие данные переданы не в виде списка.')
 
 
 def parse_status(homework):
     """Извлекает статус о переданной домашней работе."""
-    try:
-        homework_name = homework.get('homework_name')
+    homework_name = homework.get('homework_name')
 
-        if type(homework_name) != str:
-            raise TypeError('Ошибка извлечения'
-                            ' информации о домашней работе.')
+    if not isinstance(homework_name, str):
+        raise TypeError('Ошибка извлечения'
+                        ' информации о домашней работе.')
 
-        if homework.get('status') not in list(HOMEWORK_VERDICTS.keys()):
-            raise KeyError('Домашняя работа получена'
-                           ' без статуса.')
+    if homework.get('status') not in HOMEWORK_VERDICTS:
+        raise KeyError('Домашняя работа получена'
+                       ' без статуса.')
 
-        verdict = HOMEWORK_VERDICTS[homework.get('status')]
+    verdict = HOMEWORK_VERDICTS[homework.get('status')]
 
-        return (f'Изменился статус проверки'
-                f' работы "{homework_name}". {verdict}')
-    except Exception as e:
-        logger.error('Ошибка извлечения информации'
-                     ' о домашней работе.' + str(e))
-        raise exceptions.ParseError('Ошибка извлечения информации о'
-                                    ' домашней работе.' + str(e))
+    return (f'Изменился статус проверки'
+            f' работы "{homework_name}". {verdict}')
 
 
 def main():
@@ -129,8 +123,8 @@ def main():
     logger.debug('Бот начал свою работу.')
     timestamp = int(time.time())
 
-    errors = set()
-    answers = set()
+    errors = ''
+    answers = ''
 
     while True:
         try:
@@ -138,29 +132,30 @@ def main():
             # Получаем ответ от API
             response = get_api_answer(timestamp)
             check_response(response)
-            timestamp = response.get('current_date')
+            timestamp = response.get('current_date', timestamp)
 
             if len(response.get('homeworks')) > 0:
+
                 # Формируем сообщение, записываем статус последней дз,
                 # Последней потому что если их несколько,
                 # то программа выдаст ошибку.
-                message = parse_status(response.get('homeworks')[0])
-                answer = response.get('homeworks')[0].get('status')
+                homework = response.get('homeworks')[0]
+                message = parse_status(homework)
+                answer = homework.get('status')
 
                 # Если нет в моей коллекции ответа,
                 # то можем отправить сообщение.
-                if answer not in answers:
+                if answer != answers:
                     send_message(bot, message)
-                    answers.add(answer)
+                    answers = answer
                 else:
                     logger.debug('В ответе нет новых результатов.')
 
                 # Смотрим: если ответ это 'approved' или 'reviewing',
                 # то обнуляем список.
                 if answer in list(HOMEWORK_VERDICTS.keys())[:2]:
-                    answers.clear()
-                    errors.clear()
-                    answers.add(answer)
+                    answers = answer
+                    errors = ''
             else:
                 logger.debug('Новые ДЗ не отправлены.'
                              ' Вернулся пустой список с ДЗ')
@@ -168,13 +163,19 @@ def main():
         except Exception as error:
 
             # Записываем ошибку для того, чтобы она не повторялась в сообщении.
-            if str(error) not in errors:
+            if str(error) != errors:
                 message = f'Сбой в работе программы: {str(error)}'
                 send_message(bot, message)
-                errors.add(str(error))
+                errors = str(error)
 
-        time.sleep(RETRY_PERIOD)
+        finally:
+            time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
-    main()
+
+    # Ctrl + C обработка
+    try:
+        main()
+    except KeyboardInterrupt:
+        print('Бот выключен.')
