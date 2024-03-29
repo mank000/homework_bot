@@ -11,17 +11,19 @@ from dotenv import load_dotenv
 import config
 import exceptions
 
+URL = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
+ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 
 load_dotenv()
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
-URL = config.URL
+URL = URL
 
 RETRY_PERIOD = config.RETRY_PERIOD
-ENDPOINT = config.ENDPOINT
-HEADERS = config.gettoken(PRACTICUM_TOKEN)
+ENDPOINT = ENDPOINT
+HEADERS = config.get_token(PRACTICUM_TOKEN)
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -105,11 +107,13 @@ def parse_status(homework):
         raise TypeError('Ошибка извлечения'
                         ' информации о домашней работе.')
 
-    if homework.get('status') not in HOMEWORK_VERDICTS:
+    homework_status = homework.get('status')
+
+    if homework_status not in HOMEWORK_VERDICTS:
         raise KeyError('Домашняя работа получена'
                        ' без статуса.')
 
-    verdict = HOMEWORK_VERDICTS[homework.get('status')]
+    verdict = HOMEWORK_VERDICTS[homework_status]
 
     return (f'Изменился статус проверки'
             f' работы "{homework_name}". {verdict}')
@@ -133,9 +137,9 @@ def main():
             response = get_api_answer(timestamp)
             check_response(response)
             timestamp = response.get('current_date', timestamp)
+            homeworks = response.get('homeworks')
 
-            if len(response.get('homeworks')) > 0:
-
+            if homeworks:
                 # Формируем сообщение, записываем статус последней дз,
                 # Последней потому что если их несколько,
                 # то программа выдаст ошибку.
@@ -156,9 +160,6 @@ def main():
                 if answer in list(HOMEWORK_VERDICTS.keys())[:2]:
                     answers = answer
                     errors = ''
-            else:
-                logger.debug('Новые ДЗ не отправлены.'
-                             ' Вернулся пустой список с ДЗ')
 
         except Exception as error:
 
@@ -178,4 +179,4 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print('Бот выключен.')
+        logger.debug('Бот выключен.')
